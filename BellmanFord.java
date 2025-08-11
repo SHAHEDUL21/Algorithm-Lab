@@ -1,77 +1,129 @@
+//Prove that, if there exists negative edge, Dijkstra’s shortest path algorithm may fail to find the shortest path. Please add Bellman Ford Algorithm
+
 import java.util.*;
 
-public class DijkstraVertexCost {
-
+public class BellmanFord {
     static class Edge {
-        int to, weight;
-        Edge(int t, int w) {
-            to = t;
-            weight = w;
+        int u, v;
+        long w;
+        Edge(int u, int v, long w) {
+            this.u = u; this.v = v; this.w = w;
         }
     }
 
-    static void dijkstra(List<List<Edge>> graph, int[] vertexCost, int src) {
-        int V = graph.size();
-        int[] dist = new int[V];
-        Arrays.fill(dist, Integer.MAX_VALUE);
-        dist[src] = vertexCost[src];
+    // Returns true if there is no negative cycle reachable from source.
+    // If false, a negative cycle exists (reachable from the source).
+    static boolean bellmanFord(int n, List<Edge> edges, int src, long[] dist, int[] parent) {
+        final long INF = Long.MAX_VALUE / 4;
+        Arrays.fill(dist, INF);
+        Arrays.fill(parent, -1);
+        dist[src] = 0;
 
-        PriorityQueue<int[]> pq = new PriorityQueue<>(Comparator.comparingInt(a -> a[1]));
-        pq.add(new int[]{src, dist[src]});
+        // Relax edges n-1 times
+        for (int i = 1; i <= n - 1; i++) {
+            boolean updated = false;
+            for (Edge e : edges) {
+                if (dist[e.u] != INF && dist[e.u] + e.w < dist[e.v]) {
+                    dist[e.v] = dist[e.u] + e.w;
+                    parent[e.v] = e.u;
+                    updated = true;
+                }
+            }
+            // optional early stop
+            if (!updated) break;
+        }
 
-        while (!pq.isEmpty()) {
-            int[] curr = pq.poll();
-            int u = curr[0];
-            int d = curr[1];
+        // Check for negative-weight cycles
+        for (Edge e : edges) {
+            if (dist[e.u] != INF && dist[e.u] + e.w < dist[e.v]) {
+                return false; // negative cycle detected
+            }
+        }
+        return true;
+    }
 
-            if (d > dist[u]) continue;
+    // Reconstruct path from src to dest using parent[], returns list of nodes or empty if unreachable.
+    static List<Integer> reconstructPath(int src, int dest, int[] parent) {
+        List<Integer> path = new ArrayList<>();
+        if (parent[dest] == -1 && src != dest) {
+            // could still be reachable if src==dest
+            if (src == dest) path.add(src);
+            return path; // unreachable except when src == dest
+        }
+        int cur = dest;
+        while (cur != -1) {
+            path.add(cur);
+            if (cur == src) break;
+            cur = parent[cur];
+        }
+        Collections.reverse(path);
+        if (path.get(0) != src) return new ArrayList<>(); // not reachable
+        return path;
+    }
 
-            for (Edge edge : graph.get(u)) {
-                int v = edge.to;
-                int newDist = dist[u] + edge.weight + vertexCost[v];
-                if (newDist < dist[v]) {
-                    dist[v] = newDist;
-                    pq.add(new int[]{v, newDist});
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter number of vertices: ");
+        int n = sc.nextInt();
+
+        System.out.print("Enter number of edges: ");
+        int m = sc.nextInt();
+
+        List<Edge> edges = new ArrayList<>();
+        System.out.println("Enter edges (u v w) -- 0-based node indices:");
+        for (int i = 0; i < m; i++) {
+            int u = sc.nextInt();
+            int v = sc.nextInt();
+            long w = sc.nextLong();
+            edges.add(new Edge(u, v, w));
+        }
+
+        System.out.print("Enter source vertex: ");
+        int src = sc.nextInt();
+
+        long[] dist = new long[n];
+        int[] parent = new int[n];
+
+        boolean ok = bellmanFord(n, edges, src, dist, parent);
+
+        if (!ok) {
+            System.out.println("Graph contains a negative-weight cycle reachable from source.");
+        } else {
+            System.out.println("No negative-weight cycle detected (reachable from source).");
+            System.out.println("Shortest distances from source " + src + ":");
+            for (int i = 0; i < n; i++) {
+                if (dist[i] == Long.MAX_VALUE / 4) {
+                    System.out.println("Node " + i + " : unreachable");
+                } else {
+                    System.out.println("Node " + i + " : " + dist[i]);
+                }
+            }
+
+            // Optionally ask for a destination to print path(s)
+            System.out.print("Enter destination vertex to print path (or -1 to skip): ");
+            int dest = sc.nextInt();
+            if (dest != -1) {
+                List<Integer> path = reconstructPath(src, dest, parent);
+                if (path.isEmpty()) {
+                    System.out.println("No path from " + src + " to " + dest + " (or unreachable).");
+                } else {
+                    System.out.println("Path from " + src + " to " + dest + " : " + path);
                 }
             }
         }
 
-        System.out.println("Vertex\tDistance from Source");
-        for (int i = 0; i < V; i++) {
-            System.out.println(i + "\t" + dist[i]);
-        }
-    }
-
-    public static void main(String[] args) {
-        int V = 5;
-        List<List<Edge>> graph = new ArrayList<>();
-        for (int i = 0; i < V; i++) {
-            graph.add(new ArrayList<>());
-        }
-
-        // Define vertex costs
-        int[] vertexCost = {2, 4, 3, 6, 1};
-
-        // Add edges (undirected example)
-        graph.get(0).add(new Edge(1, 5));
-        graph.get(1).add(new Edge(0, 5));
-
-        graph.get(0).add(new Edge(2, 2));
-        graph.get(2).add(new Edge(0, 2));
-
-        graph.get(1).add(new Edge(2, 1));
-        graph.get(2).add(new Edge(1, 1));
-
-        graph.get(1).add(new Edge(3, 3));
-        graph.get(3).add(new Edge(1, 3));
-
-        graph.get(2).add(new Edge(4, 4));
-        graph.get(4).add(new Edge(2, 4));
-
-        graph.get(3).add(new Edge(4, 2));
-        graph.get(4).add(new Edge(3, 2));
-
-        int source = 0;
-        dijkstra(graph, vertexCost, source);
+        sc.close();
     }
 }
+
+
+//Sample Input
+// Enter number of vertices: 3
+// Enter number of edges: 3
+// Enter edges (u v w) -- 0-based node indices:
+// 0 1 1
+// 1 2 -3
+// 0 2 4
+// Enter source vertex: 0
+// Enter destination vertex to print path (or -1 to skip): 2
